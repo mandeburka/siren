@@ -21,9 +21,10 @@ libraryDependencies ++= Seq(
   //"com.chuusai" %% "shapeless" % "2.3.2",
   //"org.typelevel" %% "cats" % "0.8.0",
 
-  //"com.typesafe.akka" %% "akka-actor" % "2.4.12",
-  //"com.typesafe.akka" %% "akka-slf4j" % "2.4.12",
-  //"com.typesafe.akka" %% "akka-stream" % "2.4.12",
+  "com.typesafe.akka" %% "akka-actor" % "2.4.17",
+  "com.typesafe.akka" %% "akka-slf4j" % "2.4.12",
+  "com.typesafe.akka" %% "akka-stream" % "2.4.17",
+  "com.typesafe.akka" %% "akka-typed-experimental" % "2.4.17",
   //"com.typesafe.akka" %% "akka-stream-testkit" % "2.4.12",
   //"com.typesafe.akka" %% "akka-testkit" % "2.4.12" % "test",
 
