@@ -9,9 +9,11 @@ import com.nix.siren.room.protocol.client.{Registered, Role, Unregistered}
 
 import scala.collection.mutable
 
-class Room() extends Actor {
+class Room(masterValidation: Boolean) extends Actor {
+
   private val sessions = mutable.Map.empty[UUID, Registered]
   private var master: Option[Registered] = None
+  private val pendingValidation = mutable.Map.empty[UUID, Message]
 
   def receive: Actor.Receive = {
     case Connect(client) =>
@@ -20,8 +22,11 @@ class Room() extends Actor {
       sessions -= client.id
       notify(sessions.values, ClientDisconnected(client))
       sender() ! OK
-    case message: SendMessage =>
-      postMessage(message)
+    case message: Message =>
+      processMessage(message)
+      sender() ! OK
+    case Validate(messageId) =>
+      validate(messageId)
       sender() ! OK
   }
 
@@ -39,7 +44,7 @@ class Room() extends Actor {
     Connected(registeredClient)
   }
 
-  private def postMessage(message: SendMessage) = {
+  private def postMessage(message: Message) = {
     val recipients: Iterable[Registered] = message match {
       case msg: Direct ⇒
         msg.recipientIds.foldLeft(List.empty[Registered]) {
@@ -57,8 +62,25 @@ class Room() extends Actor {
   private def notify(recipients: Iterable[Registered], event: Event) = {
     recipients.foreach(_.handle ! event)
   }
+
+  private def processMessage(message: Message) = {
+    if (masterValidation && master.isDefined) {
+      val needValidation = NeedValidation(id = UUID.randomUUID(), message = message)
+      pendingValidation += needValidation.id -> needValidation.message
+      master.foreach(_.handle ! needValidation)
+    } else postMessage(message)
+  }
+
+  private def validate(messageId: UUID) = {
+    pendingValidation.get(messageId) match {
+      case Some(message) =>
+        pendingValidation -= messageId
+        postMessage(message)
+      case None =>
+    }
+  }
 }
 
 object Room {
-  def props: Props = Props[Room]
+  def props(masterValidation: Boolean): Props = Props(classOf[Room], masterValidation)
 }
