@@ -15,9 +15,7 @@ sealed trait SendMessage extends Command {
 }
 
 final case class Broadcast(body: String, from: Registered) extends SendMessage
-final case class Direct(body: String, from: Registered, recipientId: UUID) extends SendMessage
-final case class MatchAny(body: String, from: Registered, tags: Set[String]) extends SendMessage
-final case class MatchAll(body: String, from: Registered, tags: Set[String]) extends SendMessage
+final case class Direct(body: String, from: Registered, recipientIds: Iterable[UUID]) extends SendMessage
 
 sealed trait CommandResponse
 final case class Connected(client: Registered) extends CommandResponse

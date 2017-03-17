@@ -40,22 +40,16 @@ class Room() extends Actor {
   }
 
   private def postMessage(message: SendMessage) = {
-    val recipients = message match {
+    val recipients: Iterable[Registered] = message match {
       case msg: Direct ⇒
-        sessions.filterKeys(_ == msg.recipientId)
+        msg.recipientIds.foldLeft(List.empty[Registered]) {
+          case (clients, id) => clients ++ sessions.get(id)
+        }
       case _: Broadcast ⇒
-        sessions
-      case msg: MatchAll ⇒
-        sessions.filter {
-          case (_, client) => client.tags.intersect(msg.tags) == msg.tags
-        }
-      case msg: MatchAny ⇒
-        sessions.filter {
-          case (_, client) => client.tags.intersect(msg.tags).nonEmpty
-        }
+        sessions.values
     }
     notify(
-      recipients.values.filterNot(_.id == message.from.id),
+      recipients.filterNot(_.id == message.from.id),
       MessageSent(message.body, message.from)
     )
   }
