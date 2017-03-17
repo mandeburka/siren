@@ -3,11 +3,12 @@ package com.nix.siren.room
 
 import java.util.UUID
 
-import akka.actor.{Actor, Props}
+import akka.actor.{Actor, Props, Status}
 import com.nix.siren.room.protocol._
 import com.nix.siren.room.protocol.client.{Registered, Role, Unregistered}
 
 import scala.collection.mutable
+import scala.util.{Failure, Success, Try}
 
 class Room(masterValidation: Boolean) extends Actor {
 
@@ -18,10 +19,15 @@ class Room(masterValidation: Boolean) extends Actor {
   def receive: Actor.Receive = {
     case Connect(client) =>
       sender() ! connect(client)
-    case Disconnect(client) =>
-      sessions -= client.id
-      notify(sessions.values, ClientDisconnected(client))
-      sender() ! OK
+    case Disconnect(clientId) =>
+      validateClient(clientId) match {
+        case Success(client) =>
+          sessions -= client.id
+          notify(sessions.values, ClientDisconnected(client))
+          sender() ! OK
+        case Failure(exception) =>
+          sender() ! Status.Failure(exception)
+      }
     case message: Message =>
       processMessage(message)
       sender() ! OK
@@ -41,7 +47,7 @@ class Room(masterValidation: Boolean) extends Actor {
     sessions += client.id -> registeredClient
     if (master.isEmpty) master = Some(registeredClient)
     notify(sessions.values.filterNot(_.id == client.id), ClientConnected(registeredClient))
-    Connected(registeredClient)
+    Connected
   }
 
   private def postMessage(message: Message) = {
@@ -54,7 +60,7 @@ class Room(masterValidation: Boolean) extends Actor {
         sessions.values
     }
     notify(
-      recipients.filterNot(_.id == message.from.id),
+      recipients.filterNot(_.id == message.from),
       MessageSent(message.body, message.from)
     )
   }
@@ -77,6 +83,13 @@ class Room(masterValidation: Boolean) extends Actor {
         pendingValidation -= messageId
         postMessage(message)
       case None =>
+    }
+  }
+
+  private def validateClient(clientId: UUID): Try[Registered] = {
+    sessions.get(clientId) match {
+      case Some(client) => Success(client)
+      case None => Failure(new Exception(s"Client $clientId is not found"))
     }
   }
 }
