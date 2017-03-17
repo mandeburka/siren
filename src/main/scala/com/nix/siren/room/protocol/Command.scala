@@ -2,20 +2,23 @@ package com.nix.siren.room.protocol
 
 import java.util.UUID
 
+import com.nix.siren.room.protocol.client.{Registered, Unregistered}
+
 
 sealed trait Command
-final case class Connect(client: Client) extends Command
-final case class Disconnect(client: Client) extends Command
+final case class Connect(client: Unregistered) extends Command
+final case class Disconnect(client: Registered) extends Command
 
 sealed trait SendMessage extends Command {
   def body: String
-  def from: Client
+  def from: Registered
 }
 
-final case class Broadcast(body: String, from: Client) extends SendMessage
-final case class Direct(body: String, from: Client, recipientId: UUID) extends SendMessage
-final case class MatchAny(body: String, from: Client, tags: Set[String]) extends SendMessage
-final case class MatchAll(body: String, from: Client, tags: Set[String]) extends SendMessage
+final case class Broadcast(body: String, from: Registered) extends SendMessage
+final case class Direct(body: String, from: Registered, recipientId: UUID) extends SendMessage
+final case class MatchAny(body: String, from: Registered, tags: Set[String]) extends SendMessage
+final case class MatchAll(body: String, from: Registered, tags: Set[String]) extends SendMessage
 
 sealed trait CommandResponse
+final case class Connected(client: Registered) extends CommandResponse
 case object OK extends CommandResponse

@@ -5,24 +5,38 @@ import java.util.UUID
 
 import akka.actor.{Actor, Props}
 import com.nix.siren.room.protocol._
+import com.nix.siren.room.protocol.client.{Registered, Role, Unregistered}
 
 import scala.collection.mutable
 
 class Room() extends Actor {
-  private val sessions = mutable.Map.empty[UUID, Client]
+  private val sessions = mutable.Map.empty[UUID, Registered]
+  private var master: Option[Registered] = None
 
   def receive: Actor.Receive = {
     case Connect(client) =>
-      sessions += client.id -> client
-      notify(sessions.values.filterNot(_.id == client.id), ClientConnected(client))
-      sender() ! OK
+      sender() ! connect(client)
     case Disconnect(client) =>
       sessions -= client.id
-      sender() ! OK
       notify(sessions.values, ClientDisconnected(client))
+      sender() ! OK
     case message: SendMessage =>
       postMessage(message)
       sender() ! OK
+  }
+
+  private def connect(client: Unregistered) = {
+    val role = if (master.isDefined) Role.Guest else Role.Master
+    val registeredClient = Registered(
+      id = client.id,
+      handle = client.handle,
+      tags = client.tags,
+      role = role
+    )
+    sessions += client.id -> registeredClient
+    if (master.isEmpty) master = Some(registeredClient)
+    notify(sessions.values.filterNot(_.id == client.id), ClientConnected(registeredClient))
+    Connected(registeredClient)
   }
 
   private def postMessage(message: SendMessage) = {
@@ -46,7 +60,7 @@ class Room() extends Actor {
     )
   }
 
-  private def notify(recipients: Iterable[Client], event: Event) = {
+  private def notify(recipients: Iterable[Registered], event: Event) = {
     recipients.foreach(_.handle ! event)
   }
 }
